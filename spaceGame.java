@@ -18,7 +18,8 @@ public class spaceGame extends JFrame {
     private static final int BULLET_HEIGHT = 10;
 
     private JPanel gamePanel;
-    private Timer timer;
+    private Timer gameTimer;
+    private Timer enemySpawnTimer;
     private int playerX = WIDTH / 2;
     private ArrayList<Enemy> enemies = new ArrayList<>();
     private ArrayList<Bullet> bullets = new ArrayList<>();
@@ -30,7 +31,7 @@ public class spaceGame extends JFrame {
     private boolean gameOver = false;
     private boolean canShoot = true;
     private long lastShootTime = 0;
-    private final long SHOOT_COOLDOWN = 200; // Tiempo de recarga en milisegundos
+    private final long SHOOT_COOLDOWN = 100;
 
     public spaceGame() {
         setTitle("Advanced Space Game");
@@ -54,10 +55,10 @@ public class spaceGame extends JFrame {
                 if (!gameOver) {
                     switch (e.getKeyCode()) {
                         case KeyEvent.VK_LEFT:
-                            playerX = Math.max(0, playerX - 10);
+                            playerX = Math.max(0, playerX - 20);
                             break;
                         case KeyEvent.VK_RIGHT:
-                            playerX = Math.min(WIDTH - PLAYER_WIDTH, playerX + 10);
+                            playerX = Math.min(WIDTH - PLAYER_WIDTH, playerX + 20);
                             break;
                         case KeyEvent.VK_SPACE:
                             if (canShoot) {
@@ -80,7 +81,7 @@ public class spaceGame extends JFrame {
             }
         });
 
-        timer = new Timer(16, new ActionListener() {
+        gameTimer = new Timer(16, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!gameOver) {
@@ -89,29 +90,26 @@ public class spaceGame extends JFrame {
                 }
             }
         });
-        timer.start();
+        gameTimer.start();
+
+        // Nuevo Timer para el spawn de enemigos
+        enemySpawnTimer = new Timer(1000, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                spawnEnemy();
+            }
+        });
+        enemySpawnTimer.start();
 
         setFocusable(true);
-        spawnEnemies();
     }
 
     private void drawGame(Graphics g) {
-        // Dibujar fondo estático
         drawStaticBackground(g);
-
-        // Dibujar jugador
         drawPlayer(g);
-
-        // Dibujar enemigos
         drawEnemies(g);
-
-        // Dibujar balas
         drawBullets(g);
-
-        // Dibujar explosiones
         drawExplosions(g);
-
-        // Dibujar puntuación, nivel y vidas
         drawHUD(g);
 
         if (gameOver) {
@@ -125,31 +123,24 @@ public class spaceGame extends JFrame {
     }
 
     private void drawPlayer(Graphics g) {
-        // Dibujar nave del jugador
-        g.setColor(Color.GREEN);
-        g.fillRect(playerX, HEIGHT - PLAYER_HEIGHT - 20, PLAYER_WIDTH, PLAYER_HEIGHT);
-
-        // Agregar diseño a la nave del jugador
+        g.setColor(Color.BLUE);
+        g.fillRoundRect(playerX, HEIGHT - PLAYER_HEIGHT - 20, PLAYER_WIDTH, PLAYER_HEIGHT, 20, 20);
         g.setColor(Color.WHITE);
-        g.drawOval(playerX + 5, HEIGHT - PLAYER_HEIGHT - 15, 10, 10); // Luces
-        g.drawLine(playerX + 10, HEIGHT - PLAYER_HEIGHT - 20, playerX + 10, HEIGHT - PLAYER_HEIGHT); // Cuerpo
-        g.drawLine(playerX, HEIGHT - PLAYER_HEIGHT - 10, playerX + PLAYER_WIDTH, HEIGHT - PLAYER_HEIGHT - 10); // Alas
+        g.fillRect(playerX + 20, HEIGHT - PLAYER_HEIGHT, 10, 10);
     }
 
     private void drawEnemies(Graphics g) {
-        // Dibujar enemigos
-        g.setColor(Color.RED);
+        g.setColor(Color.ORANGE);
         for (Enemy enemy : enemies) {
-            // Dibujar diseño de los enemigos
-            g.fillRect(enemy.x, enemy.y, ENEMY_WIDTH, ENEMY_HEIGHT);
+            g.fillOval(enemy.x, enemy.y, ENEMY_WIDTH, ENEMY_HEIGHT);
             g.setColor(Color.WHITE);
-            g.drawOval(enemy.x + 5, enemy.y + 5, 10, 10); // Ojos
-            g.drawLine(enemy.x + 10, enemy.y, enemy.x + 10, enemy.y + ENEMY_HEIGHT); // Cuerpo
+            g.fillRect(enemy.x + 10, enemy.y + 10, 5, 5);
+            g.fillRect(enemy.x + 25, enemy.y + 10, 5, 5);
+            g.fillRect(enemy.x + 17, enemy.y + 25, 6, 10);
         }
     }
 
     private void drawBullets(Graphics g) {
-        // Dibujar balas
         g.setColor(Color.YELLOW);
         for (Bullet bullet : bullets) {
             g.fillRect(bullet.x, bullet.y, BULLET_WIDTH, BULLET_HEIGHT);
@@ -157,14 +148,12 @@ public class spaceGame extends JFrame {
     }
 
     private void drawExplosions(Graphics g) {
-        // Dibujar explosiones
         for (Explosion explosion : explosions) {
             explosion.draw(g);
         }
     }
 
     private void drawHUD(Graphics g) {
-        // Dibujar puntuación, nivel y vidas
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.BOLD, 20));
         g.drawString("Score: " + score, 10, 25);
@@ -181,19 +170,10 @@ public class spaceGame extends JFrame {
     }
 
     private void updateGame() {
-        // Mover enemigos
         moveEnemies();
-
-        // Mover balas
         updateBullets();
-
-        // Actualizar explosiones
         updateExplosions();
-
-        // Verificar colisiones
         checkCollisions();
-
-        // Comprobar si se ha completado el nivel
         checkLevelComplete();
     }
 
@@ -201,17 +181,25 @@ public class spaceGame extends JFrame {
         bullets.add(new Bullet(playerX + PLAYER_WIDTH / 2 - BULLET_WIDTH / 2, HEIGHT - PLAYER_HEIGHT - 20));
     }
 
-    private void spawnEnemies() {
-        for (int i = 0; i < 10 + level; i++) {
-            for (int j = 0; j < 4; j++) {
-                enemies.add(new Enemy(50 + i * 60, 50 + j * 60));
-            }
-        }
+    private void spawnEnemy() {
+        int x = random.nextInt(WIDTH - ENEMY_WIDTH);
+        int y = -ENEMY_HEIGHT;  // Aparecen fuera de la pantalla en la parte superior
+        enemies.add(new Enemy(x, y));
     }
 
     private void moveEnemies() {
-        for (Enemy enemy : enemies) {
+        Iterator<Enemy> enemyIterator = enemies.iterator();
+        while (enemyIterator.hasNext()) {
+            Enemy enemy = enemyIterator.next();
             enemy.move();
+            if (enemy.y > HEIGHT) {
+                enemyIterator.remove();
+                lives--;
+                if (lives <= 0) {
+                    gameOver = true;
+                    enemySpawnTimer.stop();  // Detiene el spawn de enemigos
+                }
+            }
         }
     }
 
@@ -255,22 +243,13 @@ public class spaceGame extends JFrame {
                     break;
                 }
             }
-
-            // Comprobar si el enemigo ha alcanzado la parte inferior
-            if (enemy.y + ENEMY_HEIGHT > HEIGHT - PLAYER_HEIGHT - 10) {
-                enemyIterator.remove();
-                lives--;
-                if (lives <= 0) {
-                    gameOver = true;
-                }
-            }
         }
     }
 
     private void checkLevelComplete() {
         if (enemies.isEmpty()) {
             level++;
-            spawnEnemies();
+            spawnEnemy();  // Inicia el siguiente nivel con un nuevo enemigo
         }
     }
 
@@ -284,12 +263,12 @@ public class spaceGame extends JFrame {
         bullets.clear();
         explosions.clear();
         playerX = WIDTH / 2;
-        spawnEnemies();
+        enemySpawnTimer.start();  // Reinicia el spawn de enemigos
+        spawnEnemy();
     }
 
     private class Enemy {
         int x, y;
-        int direction = 1;
 
         Enemy(int x, int y) {
             this.x = x;
@@ -297,11 +276,7 @@ public class spaceGame extends JFrame {
         }
 
         void move() {
-            x += direction * (1 + level / 1.5);
-            if (x <= 0 || x >= WIDTH - ENEMY_WIDTH) {
-                direction *= -1;
-                y += 10;
-            }
+            y += 2 + level * 0.5;  // Movimiento hacia abajo y aumento gradual de velocidad
         }
     }
 
@@ -314,7 +289,7 @@ public class spaceGame extends JFrame {
         }
 
         void move() {
-            y -= 7;
+            y -= 10;
         }
     }
 
@@ -336,7 +311,7 @@ public class spaceGame extends JFrame {
 
         void draw(Graphics g) {
             g.setColor(new Color(255, 200, 0, 255 - (size * 255 / maxSize)));
-            g.fillOval(x - size/2, y - size/2, size, size);
+            g.fillOval(x - size / 2, y - size / 2, size, size);
         }
 
         boolean isFinished() {
